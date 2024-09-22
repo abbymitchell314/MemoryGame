@@ -19,6 +19,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String SCORE_KEY = "score";
     private static final String LAST_INDEX_KEY = "lastindex";
     private static final String BUTTON_STATE_KEY = "buttonstate";
+    private static final String MATCHED_BUTTONS_KEY = "matchedbuttons"; // Key for matched buttons
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,10 +39,17 @@ public class MainActivity extends AppCompatActivity {
             mScore = savedInstanceState.getInt(SCORE_KEY, 0);
             int lastIndex = savedInstanceState.getInt(LAST_INDEX_KEY, -1);
             String[] buttonStates = savedInstanceState.getStringArray(BUTTON_STATE_KEY);
+            boolean[] matchedButtons = savedInstanceState.getBooleanArray(MATCHED_BUTTONS_KEY);
+
             if (buttonStates != null) {
                 for (int i = 0; i < mButtons.length; i++) {
                     mButtons[i].setTag(buttonStates[i]);
-                    mButtons[i].setText(buttonStates[i].isEmpty() ? "" : buttonStates[i]);
+                    // Restore text only if the button is matched
+                    if (matchedButtons != null && matchedButtons[i]) {
+                        mButtons[i].setText(buttonStates[i]);
+                    } else {
+                        mButtons[i].setText(""); // Hide text for unmatched buttons
+                    }
                 }
             }
             if (lastIndex != -1) {
@@ -67,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void buttonClick(Button b) {
-        String val = (String)b.getTag();
+        String val = (String) b.getTag();
         if (!b.getText().equals(""))
             return;
         mScore++;
@@ -115,14 +123,18 @@ public class MainActivity extends AppCompatActivity {
 
         // Save the state of each button
         String[] buttonStates = new String[16];
+        boolean[] matchedButtons = new boolean[16]; // Array to track matched buttons
         int lastIndex = -1;
         for (int i = 0; i < mButtons.length; i++) {
             buttonStates[i] = (String) mButtons[i].getTag();
+            // Check if the button is matched
+            matchedButtons[i] = !mButtons[i].getText().toString().equals("");
             if (mLastButton == mButtons[i]) {
                 lastIndex = i;
             }
         }
         outState.putInt(LAST_INDEX_KEY, lastIndex);
         outState.putStringArray(BUTTON_STATE_KEY, buttonStates);
+        outState.putBooleanArray(MATCHED_BUTTONS_KEY, matchedButtons); // Save matched buttons array
     }
 }
