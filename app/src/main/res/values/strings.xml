@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MemoryGame</string>
+    <string name="completed">Completed</string>
+    <string name="score">Score</string>
+</resources>
