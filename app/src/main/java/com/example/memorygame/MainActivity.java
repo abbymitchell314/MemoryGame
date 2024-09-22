@@ -10,84 +10,83 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-public class MainActivity extends AppCompatActivity {
+import com.example.memorygame.databinding.ActivityMainBinding;
 
-    private int mLastButtonIndex = -1;
-    private Button[] mButtons = new Button[16];
-    private TextView mDone;
-    private String[] mButtonValues = new String[16];
+public class MainActivity extends AppCompatActivity {
+    private ActivityMainBinding mMainLayout;
     private int mNumMatched = 0;
-    private int mScore = 0;
-    private final int[] mButtonIds = {
-            R.id.button11, R.id.button12, R.id.button13, R.id.button14,
-            R.id.button21, R.id.button22, R.id.button23, R.id.button24,
-            R.id.button31, R.id.button32, R.id.button33, R.id.button34,
-            R.id.button41, R.id.button42, R.id.button43, R.id.button44
-    };
+    private static int mScore = 0;
+    private Button[] mButtons;
+    private Button mLastButton;
 
     private void showScore() {
         if (mNumMatched == 8)
-            mDone.setText(getText(R.string.completed) + ":" + mScore);
+            mMainLayout.done.setText(getText(R.string.completed) + ":" + mScore);
         else
-            mDone.setText(getText(R.string.score) + ":" + mScore);
+            mMainLayout.done.setText(getText(R.string.score) + ":" + mScore);
     }
 
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    mMainLayout = ActivityMainBinding.inflate(getLayoutInflater());
+    mButtons = new Button[] {
+            mMainLayout.button11, mMainLayout.button12, mMainLayout.button13, mMainLayout.button14,
+            mMainLayout.button21, mMainLayout.button22, mMainLayout.button23, mMainLayout.button24,
+            mMainLayout.button31, mMainLayout.button32, mMainLayout.button33, mMainLayout.button34,
+            mMainLayout.button41, mMainLayout.button42, mMainLayout.button43, mMainLayout.button44,
+    };
+    setContentView(mMainLayout.getRoot());
+    mMainLayout.restart.setOnClickListener(view -> init());
 
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        mDone = findViewById(R.id.done);
-        Button mRestart = findViewById(R.id.restart);
-        mRestart.setOnClickListener(view -> init());
-
-        for (int i = 0; i < 16; i++) {
-            final int v = i;
-            mButtons[i] = findViewById(mButtonIds[i]);
-            mButtons[i].setOnClickListener(view -> buttonClick((Button)view, v));
-        }
+    for (Button button : mButtons) {
+        button.setOnClickListener(view -> buttonClick((Button)view));
+    }
+    if (mScore == 0)
         init();
-    }
+    showScore();
+}
 
-    private void buttonClick(Button b, int v) {
-        String val = mButtonValues[v];
-        if (!b.getText().equals(""))
-            return;
-        mScore++;
-        b.setText(val);
-        if (mLastButtonIndex == -1) {
-            mLastButtonIndex = v;
+
+private void buttonClick(Button b) {
+    String val = (String)b.getTag();
+    if (!b.getText().equals(""))
+        return;
+    mScore++;
+    b.setText(val);
+    if (mLastButton == null) {
+        mLastButton = b;
+    } else {
+        if (mLastButton.getText().equals(val)) {
+            mNumMatched++;
+            mLastButton = null;
         } else {
-            if (mButtons[mLastButtonIndex].getText().equals(val)) {
-                mNumMatched++;
-                mLastButtonIndex = -1;
-            } else {
-                mButtons[mLastButtonIndex].setText("");
-                mLastButtonIndex = v;
-            }
+            mLastButton.setText("");
+            mLastButton = b;
         }
-        showScore();
     }
+    showScore();
+}
 
-    private void init() {
-        mNumMatched = 0;
-        mScore = 0;
-        mLastButtonIndex = -1;
-        for (int i = 0; i < 16; i++) {
-            mButtons[i].setText("");
-            mButtonValues[i] = "";
-        }
-        for (int i = 1; i < 9; i++) {
-            int x;
-            for (int j = 0; j < 2; j++) {
-                do {
-                    x = (int)(Math.random() * 16);
-                } while (!"".equals(mButtonValues[x]));
-                mButtonValues[x] = "" + i;
-            }
-        }
-        showScore();
+
+private void init() {
+    mNumMatched = 0;
+    mScore = 0;
+    mLastButton = null;
+    for (Button button : mButtons) {
+        button.setText("");
+        button.setTag("");
     }
+    for (int i = 1; i < 9; i++) {
+        for (int j = 0; j < 2; j++) {
+            int x;
+            do {
+                x = (int)(Math.random() * 16);
+            } while (!"".equals(mButtons[x].getTag()));
+            mButtons[x].setTag("" + i);
+        }
+    }
+    showScore();
+}
 
 }
