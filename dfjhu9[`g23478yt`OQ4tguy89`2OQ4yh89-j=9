@@ -1,0 +1,29 @@
+[33mcommit eada657a542f043e5648f48a4ca95872002549e0[m[33m ([m[1;36mHEAD -> [m[1;32mmaster[m[33m)[m
+Author: abbym <abbymitchell314@gmail.com>
+Date:   Mon Sep 23 13:23:08 2024 +1200
+
+    added animations and drawables to cards
+
+[33mcommit f2f923240aff09f6613c1ce53ac5cd4e7e4a09a5[m
+Author: abbym <abbymitchell314@gmail.com>
+Date:   Mon Sep 23 11:25:14 2024 +1200
+
+    fixed rotation bug that would reveal answers
+
+[33mcommit f29379eb6c21aa33da8ddc4e513ddb73c050a882[m
+Author: abbym <abbymitchell314@gmail.com>
+Date:   Mon Sep 23 11:15:24 2024 +1200
+
+    add onInstanceState
+
+[33mcommit d30ef701e54fbbff87a0c3ea2a98f778ec8d67e0[m
+Author: abbym <abbymitchell314@gmail.com>
+Date:   Mon Sep 23 10:06:13 2024 +1200
+
+    changed to use viewBinding
+
+[33mcommit 738d6ac535fbf85a292913cad3058b9a214b4d75[m
+Author: abbym <abbymitchell314@gmail.com>
+Date:   Mon Sep 23 09:44:28 2024 +1200
+
+    initial commit

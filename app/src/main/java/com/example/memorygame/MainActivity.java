@@ -1,25 +1,49 @@
 package com.example.memorygame;
 
+import android.animation.TimeInterpolator;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.widget.BaseAdapter;
+import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import androidx.fragment.app.DialogFragment;
 
 import com.example.memorygame.databinding.ActivityMainBinding;
 
 public class MainActivity extends AppCompatActivity {
-    private ActivityMainBinding mMainLayout;
-    private int mNumMatched = 0;
-    private int mScore = 0; // Instance variable
-    private ImageView[] mButtons;
-    private ImageView mLastButton;
 
-    private static final String NUMMATCHED_KEY = "nummatched";
-    private static final String SCORE_KEY = "score";
-    private static final String LAST_INDEX_KEY = "lastindex";
-    private static final String BUTTON_STATE_KEY = "buttonstate";
-    private static final String MATCHED_BUTTONS_KEY = "matchedbuttons"; // Key for matched buttons
+    private static final String TAG = "MatchingGame";
+    private static final String SCORE = "SCORE";
+    private static final String LAST = "LAST";
+    private static final String MATCHED = "MATCH";
+    private static final String TILEVALS = "TILEVALS";
+    private static final String TURNED = "TURNED";
+
+    private static final int NTILES = 256;
+    private static final int NCOLS = 4;
+    private int mLastTileIndex = -1;
+
+    private GridView mTiles;
+    private TextView mDone;
+    private int mTileValues[] = new int[NTILES];
+    private boolean mTurned[] = new boolean[NTILES];
+    private int mNumMatched = 0;
+    private TileAdapter mTileAdapter;
+    private int mScore = 0;
+    private final TimeInterpolator mFlipInterpolator = new AccelerateDecelerateInterpolator();
 
     private int[] mDrawables = {
             R.drawable.baseline_agriculture_24,
@@ -32,148 +56,293 @@ public class MainActivity extends AppCompatActivity {
             R.drawable.baseline_emoji_emotions_24
     };
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        mMainLayout = ActivityMainBinding.inflate(getLayoutInflater());
-        mButtons = new ImageView[] {
-                mMainLayout.button11, mMainLayout.button12, mMainLayout.button13, mMainLayout.button14,
-                mMainLayout.button21, mMainLayout.button22, mMainLayout.button23, mMainLayout.button24,
-                mMainLayout.button31, mMainLayout.button32, mMainLayout.button33, mMainLayout.button34,
-                mMainLayout.button41, mMainLayout.button42, mMainLayout.button43, mMainLayout.button44,
-        };
-        setContentView(mMainLayout.getRoot());
+    private ScaleGestureDetector mScaleGestureDetector;
 
-        // Restore saved state
-        if (savedInstanceState != null) {
-            mNumMatched = savedInstanceState.getInt(NUMMATCHED_KEY, 0);
-            mScore = savedInstanceState.getInt(SCORE_KEY, 0);
-            int lastIndex = savedInstanceState.getInt(LAST_INDEX_KEY, -1);
-            TileState[] buttonStates = (TileState[]) savedInstanceState.getSerializable(BUTTON_STATE_KEY);
-            boolean[] matchedButtons = savedInstanceState.getBooleanArray(MATCHED_BUTTONS_KEY);
-
-            if (buttonStates != null) {
-                for (int i = 0; i < mButtons.length; i++) {
-                    mButtons[i].setTag(buttonStates[i]);
-                    if (matchedButtons != null && matchedButtons[i]) {
-                        mButtons[i].setImageResource(buttonStates[i].resourceid);
-                    } else {
-                        mButtons[i].setImageDrawable(null); // Hide image for unmatched buttons
-                    }
-                }
-            }
-            if (lastIndex != -1) {
-                mLastButton = mButtons[lastIndex];
-            }
-            showScore();
-        } else {
-            init();
+    public class TileAdapter extends BaseAdapter {
+        class ViewHolder {
+            int position;
+            ImageView image;
         }
 
-        mMainLayout.restart.setOnClickListener(view -> init());
-
-        for (ImageView button : mButtons) {
-            button.setOnClickListener(view -> buttonClick(button));
+        @Override
+        public int getCount() {
+            return NTILES;
         }
-    }
 
-    private void showScore() {
-        if (mNumMatched == 8)
-            mMainLayout.done.setText(getText(R.string.completed) + ":" + mScore);
-        else
-            mMainLayout.done.setText(getText(R.string.score) + ":" + mScore);
-    }
+        @Override
+        public Object getItem(int i) {
+            return null;
+        }
 
-    private void buttonClick(ImageView b) {
-        int val = ((TileState) b.getTag()).resourceid;
-        if (!(b.getDrawable() == null))
-            return;
+        @Override
+        public long getItemId(int i) {
+            return i;
+        }
 
-        mScore++;
-        setButton(b, true); // Display the image on the button
-        if (mLastButton == null) {
-            mLastButton = b;
-        } else {
-            if (((TileState) mLastButton.getTag()).resourceid == val) {
-                mNumMatched++;
-                mLastButton = null;
+        @Override
+        public View getView(int i, View convertView, ViewGroup viewGroup) {
+            ViewHolder vh;
+            if (convertView == null) {
+                convertView = getLayoutInflater().inflate(R.layout.tile, viewGroup, false);
+                vh = new ViewHolder();
+                vh.image = convertView.findViewById(R.id.tilebtn);
+                convertView.setTag(vh);
             } else {
-                setButton(mLastButton, false); // Turn the last button back
-                mLastButton = b;
+                vh = (ViewHolder) convertView.getTag();
             }
+
+            convertView.setMinimumHeight(mTiles.getWidth() / mTiles.getNumColumns());
+
+            vh.image.setRotation(0);
+            if (mTurned[i]) {
+                vh.image.setImageResource(mDrawables[mTileValues[i]]);
+            } else {
+                vh.image.setImageDrawable(null);
+            }
+            vh.position = i;
+
+            return convertView;
         }
-        showScore();
     }
 
-    private void init() {
-        mNumMatched = 0;
-        mScore = 0;
-        mLastButton = null;
-        for (ImageView button : mButtons) {
-            button.setImageDrawable(null); // Hide images
-            button.setTag(new TileState(0, false)); // Set all to default
+    public static class SureDialog extends DialogFragment {
+        @Override
+        public AlertDialog onCreateDialog(Bundle savedInstanceState) {
+            MainActivity activity = (MainActivity) getActivity();
+            return new AlertDialog.Builder(activity)
+                    .setMessage(R.string.sure)
+                    .setPositiveButton(android.R.string.ok, (dialog, which) -> activity.init())
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .create();
         }
-        for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 2; j++) {
-                int x;
-                TileState t;
-                do {
-                    x = (int) (Math.random() * 16);
-                    t = (TileState) mButtons[x].getTag();
-                } while (t.resourceid != 0);
-                t.resourceid = mDrawables[i];
-            }
-        }
-        showScore();
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        // Save the game state and score
-        outState.putInt(NUMMATCHED_KEY, mNumMatched);
-        outState.putInt(SCORE_KEY, mScore);
-
-        // Save the state of each button
-        TileState[] buttonStates = new TileState[16];
-        boolean[] matchedButtons = new boolean[16];
-        int lastIndex = -1;
-        for (int i = 0; i < mButtons.length; i++) {
-            buttonStates[i] = (TileState) mButtons[i].getTag();
-            matchedButtons[i] = mButtons[i].getDrawable() != null;
-            if (mLastButton == mButtons[i]) {
-                lastIndex = i;
-            }
-        }
-        outState.putInt(LAST_INDEX_KEY, lastIndex);
-        outState.putSerializable(BUTTON_STATE_KEY, buttonStates);
-        outState.putBooleanArray(MATCHED_BUTTONS_KEY, matchedButtons); // Save matched buttons array
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.actions, menu);
+        return super.onCreateOptionsMenu(menu);
     }
 
-    private void setButton(final ImageView button, final boolean turned) {
-        final TileState t = (TileState) button.getTag();
-        final int from;
-        final int to;
-        if (!turned) {
-            from = 0;
-            to = 180;
-            t.turned = false;
-        } else {
-            from = 180;
-            to = 0;
-            t.turned = true;
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_restart) {
+            new SureDialog().show(getSupportFragmentManager(), null);
         }
-        button.setRotationY(from);
-        button.animate().rotationY((from + to) / 2f).setDuration(100).withEndAction(() -> {
-            if (turned)
-                button.setImageResource(t.resourceid); // Show the image
-            else
-                button.setImageDrawable(null); // Hide the image
-            button.animate().rotationY(to).setDuration(100).withEndAction(() ->
-                    button.setRotationY(0)
-            );
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle savedInstanceState) {
+        Log.i(TAG, "onSaveInstanceState()");
+        savedInstanceState.putInt(SCORE, mScore);
+        savedInstanceState.putInt(LAST, mLastTileIndex);
+        savedInstanceState.putInt(MATCHED, mNumMatched);
+        savedInstanceState.putIntArray(TILEVALS, mTileValues);
+        savedInstanceState.putBooleanArray(TURNED, mTurned);
+        super.onSaveInstanceState(savedInstanceState);
+    }
+
+    private void showscore() {
+        Log.i(TAG, "score=" + mScore);
+        String score = getText(R.string.app_name).toString() + " ";
+        if (mNumMatched == 8) {
+            score += getText(R.string.complete).toString() + ": " + mScore;
+        } else {
+            score += getText(R.string.score).toString() + ": " + mScore;
+        }
+        ActionBar ab = getSupportActionBar();
+        if (ab != null) ab.setTitle(score);
+    }
+
+    private void setTile(final int v, final int n, final boolean turnback, int delay) {
+        int from = 0;
+        int to = 0;
+        final TileAdapter.ViewHolder vh;
+
+        View layout = mTiles.getChildAt(v - mTiles.getFirstVisiblePosition());
+        if (layout != null) {
+            vh = (TileAdapter.ViewHolder) layout.getTag();
+        } else {
+            mTurned[v] = false;
+            return;
+        }
+
+        // Ensure correct drawable is shown when the tile is flipped
+        if (!mTurned[v]) {
+            from = -180;
+            to = 0;
+        } else {
+            mTurned[v] = true;
+            if (vh.position != v) {
+                if (turnback)
+                    mTurned[v] = false;
+                return;
+            }
+
+            if (n == -1) {
+                vh.image.setImageResource(mDrawables[mTileValues[v]]);
+            } else {
+                vh.image.setImageDrawable(null);
+            }
+        }
+
+        vh.image.setRotationY(from);
+
+        vh.image.animate().rotationY((from + to) / 2f).setDuration(200).setInterpolator(mFlipInterpolator).setStartDelay(delay);
+
+        if (vh.position != v) {
+            if (turnback)
+                mTurned[v] = false;
+            return;
+        }
+        if (n == -1) {
+            vh.image.setImageDrawable(null);
+        } else {
+            vh.image.setImageResource(mDrawables[n]);
+        }
+
+        vh.image.animate().rotationY(to).setStartDelay(0).setInterpolator(mFlipInterpolator).setDuration(200).withEndAction(() -> {
+            if (turnback) {
+                setTile(v, -1, false, 400);
+            }
         });
     }
 
+    private void setTile(final int v, final int n) {
+        setTile(v, n, false, 0);
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Log.i(TAG, "onCreate:" + mScore);
+
+        setContentView(R.layout.activity_main);
+        setSupportActionBar(findViewById(R.id.toolbar));
+
+        // Initialize GridView and Adapter
+        mTiles = findViewById(R.id.gridview);
+        mTiles.setNumColumns(NCOLS);
+
+        mTileAdapter = new TileAdapter();
+        mTiles.setAdapter(mTileAdapter);
+
+        // Restore state if available
+        if (savedInstanceState != null) {
+            mScore = savedInstanceState.getInt(SCORE, 0);
+            mLastTileIndex = savedInstanceState.getInt(LAST, -1);
+            mNumMatched = savedInstanceState.getInt(MATCHED, 0);
+            mTileValues = savedInstanceState.getIntArray(TILEVALS);
+            mTurned = savedInstanceState.getBooleanArray(TURNED);
+
+            if (mTileValues == null) mTileValues = new int[NTILES];
+            if (mTurned == null) mTurned = new boolean[NTILES];
+
+            // Notify the adapter to update the view with restored data
+            mTileAdapter.notifyDataSetChanged();
+            showscore();
+        } else {
+            // If no saved state, initialize a new game
+            init();
+        }
+
+        // Set up click listener for grid items
+        mTiles.setOnItemClickListener((adapterView, view, v, l) -> {
+            if (mTurned[v]) {
+                return; // Do nothing if the tile is already turned
+            }
+
+            mScore++;
+            if (mLastTileIndex == -1) {
+                // First tile clicked, turn it
+                mLastTileIndex = v;
+                setTile(v, mTileValues[v]);
+            } else {
+                // Second tile clicked, check if it matches the first
+                if (mTileValues[mLastTileIndex] == mTileValues[v]) {
+                    // Tiles match, keep them turned
+                    setTile(v, mTileValues[v]);
+                    mNumMatched++;
+                    mLastTileIndex = -1; // Reset for the next turn
+                } else {
+                    // Tiles don't match, turn them back after a delay
+                    setTile(v, mTileValues[v], true, 0);
+                    setTile(mLastTileIndex, -1);
+                    mLastTileIndex = -1; // Reset for the next turn
+                }
+            }
+            showscore(); // Update the score display
+        });
+    }
+
+        /*// Initialize ScaleGestureDetector for pinch-to-zoom functionality
+        mScaleGestureDetector = new ScaleGestureDetector(this, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            private float mCols = NCOLS;
+
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                mCols = mCols / detector.getScaleFactor();
+                mCols = Math.max(1, Math.min(mCols, 8));
+                mTiles.setNumColumns((int) mCols);
+
+                for (int i = 0; i < mTiles.getChildCount(); i++) {
+                    if (mTiles.getChildAt(i) != null) {
+                        mTiles.getChildAt(i).setMinimumHeight(mTiles.getWidth() / (int) mCols);
+                    }
+                }
+                mTiles.invalidate();
+                return true;
+            }
+        });
+
+        // Set up OnTouchListener for GridView
+        mTiles.setOnTouchListener((view, motionEvent) -> {
+            boolean isScaleGesture = mScaleGestureDetector.onTouchEvent(motionEvent);
+            // Return true if scaling to prevent other actions, false otherwise
+            return isScaleGesture;
+        });
+
+        init();
+    }
+*/
+    private void init() {
+        // Reset game state
+        mNumMatched = 0;
+        mScore = 0;
+        mLastTileIndex = -1;
+
+        // Total number of unique pairs needed (each drawable appears twice)
+        int numPairs = NTILES / 2;
+        int[] tempValues = new int[NTILES];
+
+        // Initialize tempValues with pairs of drawable indices
+        for (int i = 0; i < numPairs; i++) {
+            tempValues[2 * i] = i % mDrawables.length;      // First occurrence of drawable index
+            tempValues[2 * i + 1] = i % mDrawables.length;  // Second occurrence of drawable index
+        }
+
+        // Assign tempValues to mTileValues in random positions
+        boolean[] filledPositions = new boolean[NTILES];
+        for (int i = 0; i < NTILES; i++) {
+            int randomIndex;
+            do {
+                randomIndex = (int) (Math.random() * NTILES);
+            } while (filledPositions[randomIndex]); // Find an empty position
+
+            mTileValues[randomIndex] = tempValues[i];
+            filledPositions[randomIndex] = true; // Mark this position as filled
+        }
+
+        // Set all tiles as not turned
+        for (int i = 0; i < NTILES; i++) {
+            mTurned[i] = false;
+        }
+
+        // Notify the adapter to refresh the GridView
+        mTileAdapter.notifyDataSetChanged();
+
+        // Update the score display
+        showscore();
+    }
 
 }

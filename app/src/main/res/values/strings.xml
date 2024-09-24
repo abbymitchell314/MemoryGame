@@ -2,4 +2,6 @@
     <string name="app_name">MemoryGame</string>
     <string name="completed">Completed</string>
     <string name="score">Score</string>
+    <string name="sure">Are you sure you want to restart?</string>
+    <string name="complete">Game Completed!</string>
 </resources>
